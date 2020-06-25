@@ -8,13 +8,16 @@ I watched a tutorial on *YouTube* which ~~suggested~~ caused me to download the 
 - Learning how to use 
     - the markdown editor
         1. in brackets
-        2. I want this to be the point in the middle!
-        3. Marek third
-        
+        2. Marek second
+        3. I want this to be the point in the middle!
+        4. This is the fourth line
+        5. This will be sent in ERM3
         
 [karhoo website](https://www.karhoo.com/fleet-and-dms-partners/)
 
-
+``` go
+var i int = 42
+```
 ``` go
 fmt.Println("The below Karhoo logo needs to be on a black background")
 ```
