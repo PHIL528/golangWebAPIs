@@ -8,7 +8,7 @@ I watched a tutorial on *YouTube* which ~~suggested~~ caused me to download the 
     - the markdown editor
         1. in brackets
         
-[this is a link to the karhoo website](https://www.karhoo.com/fleet-and-dms-partners/)
+[karhoo website](https://www.karhoo.com/fleet-and-dms-partners/)
 
 
 ``` go
