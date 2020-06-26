@@ -1,33 +1,31 @@
 # proto-playground
-## Philip Murray is learning markdown PUSHING TO ORIGIN
 
-I watched a tutorial on *YouTube* which ~~suggested~~ caused me to download the **Brackets** editor
+## Simple "hello world" gRPC test
 
-**EDIT: Changed last name to age in the table columns, added 2nd item to list**
+**Installation** 
+ 
+```cd go/src ```
 
-- Learning how to use 
-    - the markdown editor
-        1. in brackets
-        2. Marek second
-        3. I want this to be the point in the middle!
-        4. This is the fourth line
-        5. This will be sent in ERM3
-        
-[karhoo website](https://www.karhoo.com/fleet-and-dms-partners/)
+```git clone https://github.com/marchmiel/proto-playground```
 
-``` go
-var i int = 42
-```
-``` go
-fmt.Println("The below Karhoo logo needs to be on a black background")
-```
+<div> <h1></h1></div>
+ 
+**Running the Server**
 
-![](https://karhoo.wpengine.com/wp-content/uploads/KARHOO-logo-web.png)
+```cd go/src/proto-playground/server```
 
+```go run main.go```
+<div> <h1></h1></div>
 
-| FirstName  | Age | 
-| --- | --- |
-| Philip | 20 |
+**Running the Client**
+
+```cd go/src/proto-playground/client```
+
+```go run main.go <first_name>```
 
 
-> going to make a pull request
+I watched two videos on gRPC, both of them used .WithInsecure(), and one of them used the relfection package which I guess is not required for a hello-world example but is good practice.
+
+As you per the diagram you wrote, the client sends a BookTrip message which stores the passenger name, and the server sends a Trip message which stores passanger name and driver name.
+
+
