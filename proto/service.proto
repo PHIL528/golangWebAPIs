@@ -1,0 +1,18 @@
+syntax = "proto3";
+
+package grpcTestOne;
+option go_package = "proto";
+
+message BookTrip {
+    string passengerName = 1;
+}
+message Trip {
+    string passengerName = 1;
+    string driverName = 2;
+}
+
+service ReservationService {
+    rpc MakeReservation(BookTrip) returns (Trip);
+}
+
+//protoc --go_out=plugins=grpc:. proto/service.proto
