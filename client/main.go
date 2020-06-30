@@ -13,7 +13,7 @@ func main() {
 	client_name := os.Args[1]
 
 	var con *grpc.ClientConn
-	con, err := grpc.Dial("localhost:3001", grpc.WithInsecure())
+	con, err := grpc.Dial("localhost:3002", grpc.WithInsecure())
 	if err != nil {
 		log.Fatalf("Error %v", err)
 	}
