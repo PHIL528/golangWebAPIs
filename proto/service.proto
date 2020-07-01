@@ -10,7 +10,9 @@ message Trip {
     string passengerName = 1;
     string driverName = 2;
 }
-
+message TripBooked {
+    Trip Trip = 1;
+}
 service ReservationService {
     rpc MakeReservation(BookTrip) returns (Trip);
 }
