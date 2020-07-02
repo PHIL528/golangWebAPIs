@@ -1,19 +1,20 @@
 package main
 
 import (
-	"cloud.google.com/go/pubsub"
 	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
-	"google.golang.org/grpc"
-	"google.golang.org/grpc/reflection"
 	"log"
 	"net"
 	"os"
 	"proto-playground/Config"
 	"proto-playground/proto"
 	"time"
+
+	"cloud.google.com/go/pubsub"
+	"google.golang.org/grpc"
+	"google.golang.org/grpc/reflection"
 )
 
 var publish_topic *pubsub.Topic
@@ -108,6 +109,7 @@ func pull_decoder(sub *pubsub.Subscription) (error, []error, *[]proto.BookTrip) 
 		if er != nil {
 			msg_errs = append(msg_errs, errors.New("Could not unmarshal JSON, cannot confirm trip "+er.Error()))
 		} else {
+			fmt.Println("WE ARE RECIEVIVNG HERE")
 			new_trips = append(new_trips, BookTrip)
 			msg.Ack()
 		}
