@@ -14,7 +14,7 @@ message TripBooked {
     Trip Trip = 1;
 }
 service ReservationService {
-    rpc MakeReservation(BookTrip) returns (Trip);
+    rpc MakeReservation(BookTrip) returns (TripBooked);
 }
 
 //protoc --go_out=plugins=grpc:. proto/service.proto
