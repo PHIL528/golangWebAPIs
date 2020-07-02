@@ -53,18 +53,8 @@ func send_via_gRPC(client_name string) (*proto.TripBooked, error) {
 }
 func send_via_PubSub(client_name string) (*proto.TripBooked, error) {
 	os.Setenv("PUBSUB_EMULATOR_HOST", Config.Localhost_PubSub_PORT)
-	ps_ctx := context.Background()
-	client, err := pubsub.NewClient(ps_ctx, Config.PubSub_Project_Name)
-	if err != nil {
-		return nil, errors.New("Error making new client " + err.Error())
-	}
-	send_topic := client.Topic(Config.Server_Pull_Topic)
-	exist, err := send_topic.Exists(ps_ctx)
-	if err != nil {
-		return nil, errors.New("Error in checking if topic exists " + err.Error())
-	} else if !exist {
-		return nil, errors.New("events.MakeReservation topic has not been created")
-	}
+	s_ctx := context.Background()
+	send_topic, _, err := Config.GetTopic(ps_ctx, Config.Server_Pull_Topic, false)
 	defer send_topic.Stop()
 	request := proto.BookTrip{
 		PassengerName: client_name,
@@ -82,6 +72,7 @@ func send_via_PubSub(client_name string) (*proto.TripBooked, error) {
 	}
 
 	// PUBLISH REQUEST
+	ps_ctx := context.Background()
 	if _, err = send_topic.Publish(ps_ctx, &pubsub.Message{Data: jsonbytes}).Get(ps_ctx); err != nil {
 		return nil, errors.New("Publishing errors " + err.Error())
 	}
