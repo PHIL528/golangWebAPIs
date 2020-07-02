@@ -11,5 +11,5 @@ run:
     go run client.go
     go run listener.go
 
-dc: 
+pubsub: 
 	docker-compose up
