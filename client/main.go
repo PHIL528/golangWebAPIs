@@ -54,7 +54,7 @@ func send_via_gRPC(client_name string) (*proto.TripBooked, error) {
 func send_via_PubSub(client_name string) (*proto.TripBooked, error) {
 	os.Setenv("PUBSUB_EMULATOR_HOST", Config.Localhost_PubSub_PORT)
 	s_ctx := context.Background()
-	send_topic, _, err := Config.GetTopic(ps_ctx, Config.Server_Pull_Topic, false)
+	send_topic, _, err := Config.GetTopic(s_ctx, Config.Server_Pull_Topic, false)
 	defer send_topic.Stop()
 	request := proto.BookTrip{
 		PassengerName: client_name,
