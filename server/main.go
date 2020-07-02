@@ -39,8 +39,15 @@ func createTrip(client_name string) (*proto.TripBooked, error) { //This method i
 }
 
 func main() {
-	publish_topic := setupPublisher()  //To publish confirmed requests, to be recieved by client + listener
-	pull_subscription := setupPuller() //To recieve requests from client
+	var err error
+	publish_topic, err = setupPublisher() //To publish confirmed requests, to be recieved by client + listener
+	if err != nil {
+		panic(err)
+	}
+	pull_subscription, err := setupPuller() //To recieve requests from client
+	if err != nil {
+		panic(err)
+	}
 
 	go gRPCListener(publish_topic)  //To recieve gRPC requests from client via MakeReservation contract
 	pubSubPuller(pull_subscription) //To recieve pulls from client on MakeReservation topic
@@ -94,19 +101,46 @@ func pubSubPuller(sub *pubsub.Subscription) {
 
 //SETUP
 
-func setupPublisher() *pubsub.Topic {
+func setupPublisher() (*pubsub.Topic, error) {
+	c_log := log.New(os.Stdout, "setupPublisher", log.LstdFlags)
 	os.Setenv("PUBSUB_EMULATOR_HOST", Config.Localhost_PubSub_PORT)
-	topic, _, err := Config.GetTopic(context.Background(), Config.Server_Publish_Topic, true)
-	if err != nil {
-		panic(err)
+
+	ps_ctx := context.Background()
+	notified := false
+	var client *pubsub.Client
+	var err error
+	for { //I put the for loop in hear to loop until the PubSub is started, but its useless because err returns nil regardless of whether or not the PubSub terminal is started
+		client, err = pubsub.NewClient(ps_ctx, "karhoo-local")
+		if err == nil {
+			break
+		} else if !notified {
+			c_log.Printf("setupPublisher: Failed to create pubsub client, %v", err)
+			c_log.Printf("setupPublisher Perhaps the PubSub terminal has not yet been started, will reattempt conncetion once per second")
+			notified = true
+		}
+		time.Sleep(time.Second)
 	}
-	return topic
+	topic, err := client.CreateTopic(ps_ctx, Config.Server_Publish_Topic)
+	if err != nil {
+
+	}
+	var return_err error = nil
+	if err != nil {
+		c_log.Printf("Failed to create topic %v", err)
+		c_log.Printf("Perhaps the topic already exists, joining topic instead of creating")
+		topic = client.Topic(Config.Server_Publish_Topic)
+		if exists, err := topic.Exists(ps_ctx); !exists {
+			return_err = errors.New("Cannot create topic and topic does not exist, " + err.Error())
+		}
+	}
+	return topic, return_err
 }
 
-func setupPuller() *pubsub.Subscription {
+func setupPuller() (*pubsub.Subscription, error) {
+	fmt.Println("")
 	sub, _, err := Config.GetSubscriptionToTopic(context.Background(), Config.Server_Pull_Topic, "server-pull", true)
 	if err != nil {
 		panic(err)
 	}
-	return sub
+	return sub, err
 }

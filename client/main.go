@@ -4,12 +4,11 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"log"
+
 	"os"
 	"proto-playground/Config"
 	"proto-playground/proto"
 	"strings"
-	"time"
 
 	"cloud.google.com/go/pubsub"
 	"golang.org/x/net/context"
@@ -74,72 +73,35 @@ func send_via_PubSub(client_name string) (*proto.TripBooked, error) {
 	if err != nil {
 		return nil, errors.New("Could not convert json: " + err.Error())
 	}
-	//ctx := context.Background() //Not sure if I should use a new context here.
 
-	recieve_topic := client.Topic(Config.Server_Pull_Topic)
-	if exists, err := recieve_topic.Exists(ps_ctx); !exists {
-		return nil, errors.New("Reciever topic does not exist " + err.Error())
-	}
+	// PREPARED TO LISTEN FOR RESPONSE
+	r_ctx := context.Background()
+	sub, _, err := Config.GetSubscriptionToTopic(r_ctx, Config.Server_Publish_Topic, client_name, false)
 	if err != nil {
-		return nil, errors.New("Other error with topic checking" + err.Error())
-	}
-	nctx := context.Background()
-	sub := client.Subscription(client_name)
-	exists, err := sub.Exists(nctx)
-	if err != nil {
-		return nil, errors.New("topic checking error" + err.Error())
-	}
-	if !exists {
-		fmt.Println("Creating new listener")
-		sub, err = client.CreateSubscription(nctx, client_name, pubsub.SubscriptionConfig{Topic: recieve_topic})
-		if err != nil {
-			return nil, errors.New("cannot create subscription to recieve message" + err.Error())
-		}
+		panic("Unable to recieve subscription to listen for confirmation")
 	}
 
+	// PUBLISH REQUEST
 	if _, err = send_topic.Publish(ps_ctx, &pubsub.Message{Data: jsonbytes}).Get(ps_ctx); err != nil {
 		return nil, errors.New("Publishing errors " + err.Error())
 	}
-	time.Sleep(time.Second * 10)
-	trip := proto.TripBooked{}
-	var recievedConfirmation bool
 
-	var i int = 0
-	for { //This would be a great place to implement WithTimeout()
-		time.Sleep(time.Second)
-
-		ctxx := context.Background()
-		//	client, _ := pubsub.NewClient(ctx, "karhoo-local")
-		fmt.Println("THis is the sub ")
-		fmt.Println(sub)
-		err := sub.Receive(ctxx, func(ctxxx context.Context, msg *pubsub.Message) {
-			thus := &proto.TripBooked{}
-			er := json.Unmarshal([]byte(msg.Data), thus)
-			if er != nil {
-				log.Printf("Could not unmarshal JSON, cannot confirm trip %v", er)
-			} else if thus == nil {
-				//hi
-			} else {
-				fmt.Println("THIS IS TRIP BOOKED")
-				fmt.Println(*thus)
-				if thus.Trip.PassengerName == client_name {
-					trip.Trip.PassengerName = thus.Trip.PassengerName
-					trip.Trip.DriverName = thus.Trip.DriverName
-					recievedConfirmation = true
-				}
-				msg.Ack()
-			}
-		})
-		if err == err {
-
+	// LISTEN FOR RESPONSE
+	ctxx := context.Background()
+	errx := sub.Receive(ctxx, func(ctxxx context.Context, msg *pubsub.Message) {
+		var TripBooked proto.TripBooked
+		er := json.Unmarshal([]byte(msg.Data), &TripBooked)
+		if er != nil {
+			fmt.Printf("Could not unmarshal JSON, cannot confirm trip %v", er)
+		} else {
+			fmt.Println("THIS IS TRIP BOOKED")
+			fmt.Println(TripBooked.Trip.DriverName)
+			msg.Ack()
 		}
-		if recievedConfirmation {
-			break
-		}
-		i = i + 1
-		if i > 10 {
-			return nil, errors.New("Cancel by timeout")
-		}
+	})
+	if errx != nil {
+		fmt.Println("Recieve failed")
 	}
-	return &trip, nil
+
+	return nil, nil
 }
