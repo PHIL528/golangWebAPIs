@@ -6,27 +6,35 @@ import (
 	"encoding/json"
 	"fmt"
 	"log"
-	//"math/rand"
 	"os"
+	"proto-playground/Config"
 	"proto-playground/proto"
 	"time"
 )
 
 func main() {
-	fmt.Println("Starting listener")
-	os.Setenv("PUBSUB_EMULATOR_HOST", "localhost:8085")
+	os.Setenv("PUBSUB_EMULATOR_HOST", Config.Localhost_PubSub_PORT)
 
 	ctx := context.Background()
-	client, err := pubsub.NewClient(ctx, "karhoo-local")
-	topic := client.Topic("events.TripBooked")
+	client, err := pubsub.NewClient(ctx, Config.PubSub_Project_Name)
+	if err != nil {
+		fmt.Println("Could not setup new client")
+	}
+	topic := client.Topic(Config.Server_Publish_Topic) //it is the server that publishes, not this
 	if exists, err := topic.Exists(ctx); !exists {
 		log.Fatalf("Topic does not exist %v", err)
 	}
-	sub, err := client.CreateSubscription(ctx, "yeet", pubsub.SubscriptionConfig{Topic: topic}) //I tried adding an Endpoint URL in the PushConfig but I don't think it works without a certificate
 	if err != nil {
-		fmt.Println("Subscription may already exist, attempting to join")
-		sub = client.Subscription("yeet")
-		if sub == nil {
+		log.Fatal("Other error with topic checking")
+	}
+	sub := client.Subscription("listener_pull")
+	exists, err := sub.Exists(ctx)
+	if err != nil {
+		log.Fatal("Error checking if sub exists")
+	}
+	if !exists {
+		sub, err = client.CreateSubscription(ctx, "listener_pull", pubsub.SubscriptionConfig{Topic: topic})
+		if err != nil {
 			log.Fatalf("Cannot create/join subscription")
 		}
 	}
