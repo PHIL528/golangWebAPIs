@@ -87,21 +87,20 @@ func send_via_PubSub(client_name string) (*proto.TripBooked, error) {
 	}
 
 	// LISTEN FOR RESPONSE
-	ctxx := context.Background()
-	errx := sub.Receive(ctxx, func(ctxxx context.Context, msg *pubsub.Message) {
-		var TripBooked proto.TripBooked
+	b_ctx := context.Background()
+	t_ctx, cancel := context.WithCancel(b_ctx)
+	var TripBooked proto.TripBooked
+	errx := sub.Receive(t_ctx, func(ctxxx context.Context, msg *pubsub.Message) {
 		er := json.Unmarshal([]byte(msg.Data), &TripBooked)
 		if er != nil {
 			fmt.Printf("Could not unmarshal JSON, cannot confirm trip %v", er)
 		} else {
-			fmt.Println("THIS IS TRIP BOOKED")
-			fmt.Println(TripBooked.Trip.DriverName)
 			msg.Ack()
+			cancel()
 		}
 	})
 	if errx != nil {
 		fmt.Println("Recieve failed")
 	}
-
-	return nil, nil
+	return &TripBooked, nil
 }
