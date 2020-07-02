@@ -90,7 +90,7 @@ func pubSubPuller(sub *pubsub.Subscription) {
 			puller_log.Printf("Decoding error: ", er)
 		}
 		for _, new_trip := range *new_trips {
-			if _, err := createTrip(new_trip.PassengerName); err != nil {
+			if _, err := createTrip(new_trip.Trip.PassengerName); err != nil {
 				puller_log.Printf("Error publishing trip: ", err)
 			} else {
 				puller_log.Printf("Booked trip for " + new_trip.PassengerName)
