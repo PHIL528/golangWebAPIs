@@ -1,10 +1,11 @@
 package Config
 
 import (
-	"cloud.google.com/go/pubsub"
 	"context"
 	"errors"
 	"fmt"
+
+	"cloud.google.com/go/pubsub"
 )
 
 var (
@@ -17,7 +18,7 @@ var (
 )
 
 func GetTopic(ctx context.Context, top string, admin bool) (*pubsub.Topic, context.Context, error) {
-	client, err := pubsub.NewClient(ctx, top)
+	client, err := pubsub.NewClient(ctx, PubSub_Project_Name)
 	if err != nil {
 		fmt.Println("1")
 		return nil, nil, errors.New("Unable to setup connection with PubSub")
