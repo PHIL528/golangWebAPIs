@@ -4,37 +4,21 @@ import (
 	"cloud.google.com/go/pubsub"
 	"context"
 	"encoding/json"
-	"fmt"
+
 	"log"
-	//"math/rand"
 	"os"
+	"proto-playground/Config"
 	"proto-playground/proto"
-	"time"
 )
 
 func main() {
-	fmt.Println("Starting listener")
-	os.Setenv("PUBSUB_EMULATOR_HOST", "localhost:8085")
-
-	ctx := context.Background()
-	client, err := pubsub.NewClient(ctx, "karhoo-local")
-	topic := client.Topic("events.TripBooked")
-	if exists, err := topic.Exists(ctx); !exists {
-		log.Fatalf("Topic does not exist %v", err)
-	}
-	sub, err := client.CreateSubscription(ctx, "yeet", pubsub.SubscriptionConfig{Topic: topic}) //I tried adding an Endpoint URL in the PushConfig but I don't think it works without a certificate
+	os.Setenv("PUBSUB_EMULATOR_HOST", Config.Localhost_PubSub_PORT)
+	sub, _, err := Config.GetSubscriptionToTopic(context.Background(), Config.Server_Publish_Topic, "listener-pull", false)
 	if err != nil {
-		fmt.Println("Subscription may already exist, attempting to join")
-		sub = client.Subscription("yeet")
-		if sub == nil {
-			log.Fatalf("Cannot create/join subscription")
-		}
+		panic(err)
 	}
 	// MAINTAIN PULLING EVERY SECOND
-	for {
-		time.Sleep(time.Second)
-		pull(sub)
-	}
+	pull(sub)
 }
 func pull(s *pubsub.Subscription) {
 	ctx := context.Background()
@@ -51,6 +35,6 @@ func pull(s *pubsub.Subscription) {
 		}
 	})
 	if err != nil {
-		log.Fatalf("Error  %v", err)
+		log.Fatalf("Error pull handler failed %v", err)
 	}
 }
