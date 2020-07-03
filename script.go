@@ -7,9 +7,9 @@ import (
 
 var terminal string = "Terminal"
 var script1 string = `tell application "` + terminal + `" to do script "cd go/src/proto-playground ; make pubsub"`
-var script2 string = `tell application "` + terminal + `" to do script "cd go/src/proto-playground ; make server"`
-var script3 string = `tell application "` + terminal + `" to do script "cd go/src/proto-playground ; make client"`
-var script4 string = `tell application "` + terminal + `" to do script "cd go/src/proto-playground ; make listener"`
+var script2 string = `tell application "` + terminal + `" to do script "cd go/src/proto-playground ; make s"`
+var script3 string = `tell application "` + terminal + `" to do script "cd go/src/proto-playground ; make l"`
+var script4 string = `tell application "` + terminal + `" to do script "cd go/src/proto-playground ; make c"`
 
 func main() {
 	cmd := exec.Command("osascript", "-s", "h", "-e", script1)
