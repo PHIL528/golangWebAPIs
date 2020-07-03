@@ -97,7 +97,7 @@ type server struct {
 }
 
 func (s *server) MakeReservation(ctx context.Context, req *proto.BookTrip) (*proto.TripBooked, error) {
-	s.l.Printf("Recieveing gRPC request to book trip from " + req.PassengerName)
+	s.l.Println("Recieveing gRPC request to book trip from " + req.PassengerName)
 	return createTrip(req.PassengerName)
 }
 
@@ -114,10 +114,10 @@ func pubSubPuller(messages <-chan *message.Message) {
 			if er != nil {
 				fmt.Printf("Failed create trip")
 			} else {
-				fmt.Printf("PubSub reservation has been made by " + tb.Trip.PassengerName)
+				fmt.Println("PubSub reservation has been made by " + tb.Trip.PassengerName)
 			}
 		}
-		log.Printf("received message: %s, payload: %s", msg.UUID, string(msg.Payload))
+		//log.Println("received message: %s, payload: %s", msg.UUID, string(msg.Payload))
 		// we need to Acknowledge that we received and processed the message,
 		// otherwise, it will be resent over and over again.
 		msg.Ack()

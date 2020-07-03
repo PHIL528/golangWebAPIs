@@ -1,6 +1,7 @@
 package main
 
 import (
+	"bufio"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -9,6 +10,7 @@ import (
 	"proto-playground/Config"
 	"proto-playground/proto"
 	"strings"
+	"time"
 
 	"github.com/ThreeDotsLabs/watermill"
 	"github.com/ThreeDotsLabs/watermill-googlecloud/pkg/googlecloud"
@@ -20,13 +22,31 @@ import (
 func main() {
 	fmt.Println("client")
 	route := strings.ToLower(os.Args[1])
-	client_fname := strings.ToLower(os.Args[2])
 	var err error
 	var trip *proto.TripBooked
 	if route == "grpc" {
+		client_fname := strings.ToLower(os.Args[2])
 		trip, err = send_via_gRPC(client_fname)
 	} else if route == "pubsub" {
+		client_fname := strings.ToLower(os.Args[2])
 		trip, err = send_via_PubSub(client_fname)
+	} else if route == "make" {
+		time.Sleep(time.Second)
+		fmt.Println("CLIENT: PLEASE ENTER IN ROUTE AND NAME INFORMATION")
+		reader := bufio.NewReader(os.Stdin)
+		fmt.Print("CLIENT: Enter either 'grpc' or 'pubsub' : ")
+		text1, _ := reader.ReadString('\n')
+		fmt.Print("CLIENT: Enter first name of passenger : ")
+		text2, _ := reader.ReadString('\n')
+		if text1[:4] == "grpc" {
+			fmt.Println("Sending by gRPC")
+			trip, err = send_via_gRPC(text2)
+		} else if text1[:6] == "pubsub" {
+			fmt.Println("Sending bny PubSub")
+			trip, err = send_via_PubSub(text2)
+		} else {
+			panic("Args 1 is neither gRPC nor PubSub")
+		}
 	} else {
 		panic("Args 1 is neither gRPC nor PubSub")
 	}

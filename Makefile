@@ -8,7 +8,7 @@ clean:
 
 auto: 
 	go run script.go
-m:
+s:
 	bin/./server_exec
 l: 
 	bin/./listener_exec

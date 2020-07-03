@@ -44,12 +44,12 @@ func pull(messages <-chan *message.Message) {
 		var TripBooked proto.TripBooked
 		err := json.Unmarshal(msg.Payload, &TripBooked)
 		if err != nil {
-			fmt.Printf("Failed to unmarshal JSON")
+			fmt.Println("Failed to unmarshal JSON")
 		} else {
-			log.Printf("Logging trip made by %v", TripBooked.Trip.PassengerName)
-			log.Printf("To be serviced by %v", TripBooked.Trip.DriverName)
+			log.Println("Logging trip made by %v", TripBooked.Trip.PassengerName)
+			log.Println("To be serviced by %v", TripBooked.Trip.DriverName)
 		}
-		log.Printf("received message: %s, payload: %s", msg.UUID, string(msg.Payload))
+		log.Println("received message: %s, payload: %s", msg.UUID, string(msg.Payload))
 		// we need to Acknowledge that we received and processed the message,
 		// otherwise, it will be resent over and over again.
 		msg.Ack()
