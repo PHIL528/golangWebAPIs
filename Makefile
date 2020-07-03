@@ -3,5 +3,20 @@ build:
 	go build -o bin/server_exec server/main.go
 	go build -o bin/listener_exec listener/main.go
 
+auto: 
+	go run script.go
+
 pubsub:
 	docker-compose up
+
+server:
+	cd bin
+	./server_exec
+
+listener:
+	cd bin
+	./listener_exec
+
+client:
+	cd bin
+	./client_exec make
