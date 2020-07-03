@@ -4,19 +4,21 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-
+	"log"
 	"os"
 	"proto-playground/Config"
 	"proto-playground/proto"
 	"strings"
 
-	"cloud.google.com/go/pubsub"
+	"github.com/ThreeDotsLabs/watermill"
+	"github.com/ThreeDotsLabs/watermill-googlecloud/pkg/googlecloud"
+	"github.com/ThreeDotsLabs/watermill/message"
 	"golang.org/x/net/context"
 	"google.golang.org/grpc"
 )
 
 func main() {
-	route := os.Args[1]
+	route := strings.ToLower(os.Args[1])
 	client_fname := strings.ToLower(os.Args[2])
 	var err error
 	var trip *proto.TripBooked
@@ -53,9 +55,14 @@ func send_via_gRPC(client_name string) (*proto.TripBooked, error) {
 }
 func send_via_PubSub(client_name string) (*proto.TripBooked, error) {
 	os.Setenv("PUBSUB_EMULATOR_HOST", Config.Localhost_PubSub_PORT)
-	s_ctx := context.Background()
-	send_topic, _, err := Config.GetTopic(s_ctx, Config.Server_Pull_Topic, false)
-	defer send_topic.Stop()
+
+	logger := watermill.NewStdLogger(false, false)
+	publisher, err := googlecloud.NewPublisher(googlecloud.PublisherConfig{
+		ProjectID: Config.PubSub_Project_Name,
+	}, logger)
+	if err != nil {
+		panic(err)
+	}
 	request := proto.BookTrip{
 		PassengerName: client_name,
 	}
@@ -65,33 +72,46 @@ func send_via_PubSub(client_name string) (*proto.TripBooked, error) {
 	}
 
 	// PREPARED TO LISTEN FOR RESPONSE
-	r_ctx := context.Background()
-	sub, _, err := Config.GetSubscriptionToTopic(r_ctx, Config.Server_Publish_Topic, client_name, false)
+	subscriber, err := googlecloud.NewSubscriber(
+		googlecloud.SubscriberConfig{
+			GenerateSubscriptionName: func(topic string) string {
+				return client_name
+			},
+			ProjectID: Config.PubSub_Project_Name,
+		},
+		logger,
+	)
 	if err != nil {
-		panic("Unable to recieve subscription to listen for confirmation")
+		panic(err)
+	}
+	messages, err := subscriber.Subscribe(context.Background(), Config.Server_Publish_Topic)
+	if err != nil {
+		panic(err)
 	}
 
 	// PUBLISH REQUEST
-	ps_ctx := context.Background()
-	if _, err = send_topic.Publish(ps_ctx, &pubsub.Message{Data: jsonbytes}).Get(ps_ctx); err != nil {
-		return nil, errors.New("Publishing errors " + err.Error())
+	msg := message.NewMessage(watermill.NewUUID(), jsonbytes)
+	if err := publisher.Publish(Config.Server_Pull_Topic, msg); err != nil {
+		return nil, errors.New("Could not push request to Pub/Sub service")
 	}
 
 	// LISTEN FOR RESPONSE
-	b_ctx := context.Background()
-	t_ctx, cancel := context.WithCancel(b_ctx)
 	var TripBooked proto.TripBooked
-	errx := sub.Receive(t_ctx, func(ctxxx context.Context, msg *pubsub.Message) {
-		er := json.Unmarshal([]byte(msg.Data), &TripBooked)
-		if er != nil {
-			fmt.Printf("Could not unmarshal JSON, cannot confirm trip %v", er)
-		} else {
+	for msg := range messages {
+		err := json.Unmarshal(msg.Payload, &TripBooked)
+		if err != nil {
+			fmt.Printf("Failed to unmarshal JSON")
+		} else if TripBooked.Trip.PassengerName == client_name {
+			log.Printf("Recieved trip confirmation, driver is " + TripBooked.Trip.DriverName)
 			msg.Ack()
-			cancel()
+			break
+		} else {
+			log.Printf("Trip was from different client")
 		}
-	})
-	if errx != nil {
-		fmt.Println("Recieve failed")
+		log.Printf("received message: %s, payload: %s", msg.UUID, string(msg.Payload))
+		// we need to Acknowledge that we received and processed the message,
+		// otherwise, it will be resent over and over again.
+		msg.Ack()
 	}
 	return &TripBooked, nil
 }

@@ -1,10 +1,12 @@
 package main
 
 import (
-	"cloud.google.com/go/pubsub"
 	"context"
 	"encoding/json"
-
+	"fmt"
+	"github.com/ThreeDotsLabs/watermill"
+	"github.com/ThreeDotsLabs/watermill-googlecloud/pkg/googlecloud"
+	"github.com/ThreeDotsLabs/watermill/message"
 	"log"
 	"os"
 	"proto-playground/Config"
@@ -13,28 +15,41 @@ import (
 
 func main() {
 	os.Setenv("PUBSUB_EMULATOR_HOST", Config.Localhost_PubSub_PORT)
-	sub, _, err := Config.GetSubscriptionToTopic(context.Background(), Config.Server_Publish_Topic, "listener-pull", false)
+
+	logs := watermill.NewStdLogger(false, false)
+	subscriber, err := googlecloud.NewSubscriber(
+		googlecloud.SubscriberConfig{
+			GenerateSubscriptionName: func(topic string) string {
+				return "listener"
+			},
+			ProjectID: Config.PubSub_Project_Name,
+		},
+		logs,
+	)
+	if err != nil {
+		panic(err)
+	}
+	messages, err := subscriber.Subscribe(context.Background(), Config.Server_Publish_Topic)
 	if err != nil {
 		panic(err)
 	}
 	// MAINTAIN PULLING EVERY SECOND
-	pull(sub)
+	pull(messages)
 }
-func pull(s *pubsub.Subscription) {
-	ctx := context.Background()
-	//	client, _ := pubsub.NewClient(ctx, "karhoo-local")
-	err := s.Receive(ctx, func(ctxx context.Context, msg *pubsub.Message) {
+
+func pull(messages <-chan *message.Message) {
+	for msg := range messages {
 		var TripBooked proto.TripBooked
-		er := json.Unmarshal([]byte(msg.Data), &TripBooked)
-		if er != nil {
-			log.Printf("Could not unmarshal JSON, cannot confirm trip %v", er)
+		err := json.Unmarshal(msg.Payload, &TripBooked)
+		if err != nil {
+			fmt.Printf("Failed to unmarshal JSON")
 		} else {
 			log.Printf("Logging trip made by %v", TripBooked.Trip.PassengerName)
 			log.Printf("To be serviced by %v", TripBooked.Trip.DriverName)
-			msg.Ack()
 		}
-	})
-	if err != nil {
-		log.Fatalf("Error pull handler failed %v", err)
+		log.Printf("received message: %s, payload: %s", msg.UUID, string(msg.Payload))
+		// we need to Acknowledge that we received and processed the message,
+		// otherwise, it will be resent over and over again.
+		msg.Ack()
 	}
 }
