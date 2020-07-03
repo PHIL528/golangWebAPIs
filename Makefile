@@ -6,7 +6,7 @@ build:
 clean:
 	rm bin/*
 
-auto: 
+run: 
 	go run script.go
 s:
 	bin/./server_exec

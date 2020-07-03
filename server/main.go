@@ -8,6 +8,7 @@ import (
 	"log"
 	"net"
 	"os"
+
 	"proto-playground/Config"
 	"proto-playground/proto"
 
@@ -42,6 +43,7 @@ func createTrip(client_name string) (*proto.TripBooked, error) { //This method i
 }
 
 func main() {
+	fmt.Println("TEST ", Config.Testlocal)
 	os.Setenv("PUBSUB_EMULATOR_HOST", Config.Localhost_PubSub_PORT)
 
 	//Generate Watermill Publisher
@@ -112,12 +114,12 @@ func pubSubPuller(messages <-chan *message.Message) {
 		} else {
 			tb, er := createTrip(BookTrip.PassengerName)
 			if er != nil {
-				fmt.Printf("Failed create trip")
+				fmt.Println("Failed create trip")
 			} else {
 				fmt.Println("PubSub reservation has been made by " + tb.Trip.PassengerName)
 			}
 		}
-		//log.Println("received message: %s, payload: %s", msg.UUID, string(msg.Payload))
+		log.Println("received message: %s, payload: %s", msg.UUID, string(msg.Payload))
 		// we need to Acknowledge that we received and processed the message,
 		// otherwise, it will be resent over and over again.
 		msg.Ack()

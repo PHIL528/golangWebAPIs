@@ -10,22 +10,16 @@
 
 <div> <h1></h1></div>
  
-**Running the Server**
+**Running the Emulator, Server, Client and Listener**
 
 ```cd go/src/proto-playground/server```
 
-```go run main.go```
-<div> <h1></h1></div>
+```make build```
 
-**Running the Client**
+```make run```
 
-```cd go/src/proto-playground/client```
+Then click on the stock terminal icon, and there should be 4 terminals
 
-```go run main.go <first_name>```
-
-
-I watched two videos on gRPC, both of them used .WithInsecure(), and one of them used the relfection package which I guess is not required for a hello-world example but is good practice.
-
-As you per the diagram you wrote, the client sends a BookTrip message which stores the passenger name, and the server sends a Trip message which stores passanger name and driver name.
+Find the terminal for the client, and enter in PubSub/gRPC and the first name
 
 

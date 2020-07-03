@@ -6,8 +6,9 @@ import (
 	"fmt"
 	"log"
 	"os"
-	"proto-playground/Config"
-	"proto-playground/proto"
+
+	"github.com/Philip-Murray/Waterground/Config"
+	"github.com/Philip-Murray/Waterground/proto"
 
 	"github.com/ThreeDotsLabs/watermill"
 	"github.com/ThreeDotsLabs/watermill-googlecloud/pkg/googlecloud"
