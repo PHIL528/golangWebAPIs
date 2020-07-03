@@ -18,6 +18,7 @@ import (
 )
 
 func main() {
+	fmt.Println("client")
 	route := strings.ToLower(os.Args[1])
 	client_fname := strings.ToLower(os.Args[2])
 	var err error

@@ -1,15 +1,14 @@
 build:
-    go build -o bin/main client/main.go
-    go build -o bin/main server/main.go
-    go build -o bin/main listener/main.go
-    go build -o bin/main Config/Config.go
+    go build -o client/main.go
+    go build -o server/main.go
+    go build -o listener/main.go
+    go build -o Config/Config.go
 
 
 run:
-    go run server/main.go
-    go run bin/main
-    go run client.go
-    go run listener.go
-
-pubsub: 
 	docker-compose up
+    go run server/main.go
+    go run client/main.go
+    go run listener/main.go
+
+
