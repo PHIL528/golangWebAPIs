@@ -10,8 +10,8 @@ import (
 	"strings"
 	"time"
 
-	"github.com/Philip-Murray/Waterground/Config"
-	"github.com/Philip-Murray/Waterground/proto"
+	"github.com/proto-playground/Config"
+	"github.com/proto-playground/proto"
 
 	"github.com/ThreeDotsLabs/watermill"
 	"github.com/ThreeDotsLabs/watermill-googlecloud/pkg/googlecloud"

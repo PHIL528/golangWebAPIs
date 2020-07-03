@@ -9,8 +9,8 @@ import (
 	"net"
 	"os"
 
-	"proto-playground/Config"
-	"proto-playground/proto"
+	"github.com/proto-playground/Config"
+	"github.com/proto-playground/proto"
 
 	"github.com/ThreeDotsLabs/watermill"
 	"github.com/ThreeDotsLabs/watermill-googlecloud/pkg/googlecloud"

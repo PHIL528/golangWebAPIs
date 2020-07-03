@@ -9,7 +9,7 @@ import (
 
 var (
 	//Publish/Pull are relative to server
-	testlocal                    = "asdf"
+	Testlocal                    = "asdf"
 	Server_Publish_Topic         = "events.TripBooked"
 	Server_Pull_Topic            = "events.MakeReservation"
 	GRPC_PORT             string = ":3002"          //Exposed
