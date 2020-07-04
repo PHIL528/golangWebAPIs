@@ -1,8 +1,8 @@
-FROM golang:1.12.0-alpine3.9-d 
+FROM golang:1.12.0-alpine3.9
 RUN apk add --no-cache git
-WORKDIR /app
+WORKDIR /app/
 COPY go.mod go.sum ./
 RUN go mod download 
 COPY . .
-RUN go build -o main .
-CMD ["./main"]
+RUN go build -o bin/server_exec .
+#CMD ["./main"]
