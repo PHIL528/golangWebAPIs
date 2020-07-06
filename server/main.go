@@ -43,8 +43,8 @@ func createTrip(client_name string) (*proto.TripBooked, error) { //This method i
 }
 
 func main() {
-	fmt.Println("TEST ", Config.Testlocal)
 	os.Setenv("PUBSUB_EMULATOR_HOST", Config.Localhost_PubSub_PORT)
+	fmt.Println(Config.Localhost_PubSub_PORT)
 
 	//Generate Watermill Publisher
 	logger := watermill.NewStdLogger(false, false)
@@ -55,7 +55,7 @@ func main() {
 	if err != nil {
 		panic(err)
 	}
-
+	fmt.Println("PAST PUBLISHER")
 	//Generate Watermill Subscriber
 	logger2 := watermill.NewStdLogger(false, false)
 	subscriber, err := googlecloud.NewSubscriber(
@@ -75,7 +75,8 @@ func main() {
 		panic(err)
 	}
 
-	go gRPCListener()      //To recieve gRPC requests from client via MakeReservation contract
+	go gRPCListener() //To recieve gRPC requests from client via MakeReservation contract
+	fmt.Println("called go")
 	pubSubPuller(messages) //To recieve pulls from client on MakeReservation topic
 }
 

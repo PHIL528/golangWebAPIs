@@ -2,8 +2,8 @@ package main
 
 import (
 	"bufio"
+	"context"
 	"encoding/json"
-	"errors"
 	"fmt"
 	"log"
 	"os"
@@ -11,12 +11,10 @@ import (
 	"time"
 
 	"github.com/marchmiel/proto-playground/Config"
+	"github.com/marchmiel/proto-playground/client/clientTools"
+	"github.com/marchmiel/proto-playground/conv"
 	"github.com/marchmiel/proto-playground/proto"
 
-	"github.com/ThreeDotsLabs/watermill"
-	"github.com/ThreeDotsLabs/watermill-googlecloud/pkg/googlecloud"
-	"github.com/ThreeDotsLabs/watermill/message"
-	"golang.org/x/net/context"
 	"google.golang.org/grpc"
 )
 
@@ -25,11 +23,13 @@ func main() {
 	route := strings.ToLower(os.Args[1])
 	var err error
 	var trip *proto.TripBooked
+	fmt.Println("preroute")
 	if route == "grpc" {
 		client_fname := strings.ToLower(os.Args[2])
 		trip, err = send_via_gRPC(client_fname)
 	} else if route == "pubsub" {
 		client_fname := strings.ToLower(os.Args[2])
+		fmt.Println(client_fname)
 		trip, err = send_via_PubSub(client_fname)
 	} else if route == "make" {
 		time.Sleep(time.Second)
@@ -57,6 +57,7 @@ func main() {
 		panic(err)
 	}
 }
+
 func send_via_gRPC(client_name string) (*proto.TripBooked, error) {
 	var con *grpc.ClientConn
 	con, err := grpc.Dial("localhost:3002", grpc.WithInsecure())
@@ -76,48 +77,23 @@ func send_via_gRPC(client_name string) (*proto.TripBooked, error) {
 	//log.Printf("Server assigned driver %s", confirmed_trip.DriverName)
 }
 func send_via_PubSub(client_name string) (*proto.TripBooked, error) {
+	fmt.Println("STARTING PUBSUB")
 	os.Setenv("PUBSUB_EMULATOR_HOST", Config.Localhost_PubSub_PORT)
 
-	logger := watermill.NewStdLogger(false, false)
-	publisher, err := googlecloud.NewPublisher(googlecloud.PublisherConfig{
-		ProjectID: Config.PubSub_Project_Name,
-	}, logger)
-	if err != nil {
-		panic(err)
-	}
 	request := proto.BookTrip{
 		PassengerName: client_name,
 	}
-	jsonbytes, err := json.Marshal(request)
+	<-time.After(1)
+	msg, err := conv.JsonToMessage(request)
+	fmt.Println("We converted msg ")
+	fmt.Println(msg)
 	if err != nil {
-		return nil, errors.New("Could not convert json: " + err.Error())
+		return nil, err
 	}
 
-	// PREPARED TO LISTEN FOR RESPONSE
-	subscriber, err := googlecloud.NewSubscriber(
-		googlecloud.SubscriberConfig{
-			GenerateSubscriptionName: func(topic string) string {
-				return client_name
-			},
-			ProjectID: Config.PubSub_Project_Name,
-		},
-		logger,
-	)
-	if err != nil {
-		panic(err)
-	}
-	messages, err := subscriber.Subscribe(context.Background(), Config.Server_Publish_Topic)
-	if err != nil {
-		panic(err)
-	}
+	p := clientTools.NewPubSubConnector()
+	messages, err := p.SendReservation(msg)
 
-	// PUBLISH REQUEST
-	msg := message.NewMessage(watermill.NewUUID(), jsonbytes)
-	if err := publisher.Publish(Config.Server_Pull_Topic, msg); err != nil {
-		return nil, errors.New("Could not push request to Pub/Sub service")
-	}
-
-	// LISTEN FOR RESPONSE
 	var TripBooked proto.TripBooked
 	for msg := range messages {
 		err := json.Unmarshal(msg.Payload, &TripBooked)
