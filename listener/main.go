@@ -4,11 +4,11 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"github.com/marchmiel/proto-playground/Config"
+	"github.com/marchmiel/proto-playground/conv"
+	"github.com/marchmiel/proto-playground/proto"
 	"log"
 	"os"
-
-	"github.com/marchmiel/proto-playground/Config"
-	"github.com/marchmiel/proto-playground/proto"
 
 	"github.com/ThreeDotsLabs/watermill"
 	"github.com/ThreeDotsLabs/watermill-googlecloud/pkg/googlecloud"
@@ -41,8 +41,17 @@ func main() {
 }
 
 func pull(messages <-chan *message.Message) {
+
 	for msg := range messages {
 		var TripBooked proto.TripBooked
+		var ES proto.TripBooked
+
+		esb, errx := conv.RecoverFromMessage(msg, ES)
+		fmt.Println("List1")
+		fmt.Println(errx)
+		fmt.Println("List2")
+		fmt.Println(esb)
+
 		err := json.Unmarshal(msg.Payload, &TripBooked)
 		if err != nil {
 			fmt.Println("Failed to unmarshal JSON")

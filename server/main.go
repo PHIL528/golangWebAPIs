@@ -55,6 +55,9 @@ func main() {
 	if err != nil {
 		panic(err)
 	}
+	if err := publisher_main.Publish(Config.Server_Publish_Topic, &message.Message{}); err != nil {
+		panic(err)
+	}
 	fmt.Println("PAST PUBLISHER")
 	//Generate Watermill Subscriber
 	logger2 := watermill.NewStdLogger(false, false)

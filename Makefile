@@ -17,3 +17,6 @@ c:
 
 pubsub:
 	docker-compose up
+
+cgen:
+	go run github.com/maxbrunsfeld/counterfeiter/v6 ./client/main.go PubSubConnector
