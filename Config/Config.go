@@ -5,7 +5,7 @@ import (
 	"errors"
 
 	"cloud.google.com/go/pubsub"
-	"google.golang.org/grpc"
+	//"google.golang.org/grpc"
 )
 
 var (
@@ -15,6 +15,7 @@ var (
 	GRPC_PORT             string = ":3002"          //Exposed
 	Localhost_PubSub_PORT string = "localhost:8085" //Connecting to external
 	PubSub_Project_Name          = "karhoo-local"
+	REST_Address          string = "localhost:3003"
 	//Secure_type                  = grpc.WithInsecure()
 )
 

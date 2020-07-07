@@ -8,8 +8,8 @@ import (
 	"github.com/ThreeDotsLabs/watermill/message"
 )
 
-func ToJsonToMessage(emptyset interface{}) (*message.Message, error) {
-	jsonbytes, err := json.Marshal(emptyset)
+func ToJsonToMessage(gen *interface{}) (*message.Message, error) {
+	jsonbytes, err := json.Marshal(gen)
 	if err != nil {
 		return nil, errors.New("Could not convert json: " + err.Error())
 	}

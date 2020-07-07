@@ -8,6 +8,7 @@ require (
 	github.com/ThreeDotsLabs/watermill-googlecloud v1.0.4
 	github.com/golang/protobuf v1.4.2
 	github.com/maxbrunsfeld/counterfeiter/v6 v6.2.3 // indirect
+	github.com/pkg/errors v0.9.1
 	github.com/stretchr/testify v1.4.0
 	golang.org/x/net v0.0.0-20200625001655-4c5254603344
 	golang.org/x/sys v0.0.0-20200625212154-ddb9806d33ae // indirect
