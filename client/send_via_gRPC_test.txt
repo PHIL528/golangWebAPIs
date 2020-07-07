@@ -1,3 +1,4 @@
+/*
 package main
 
 import (
@@ -22,11 +23,12 @@ func MapGRPCInputToOutput(ctx context.Context, BookTrip *proto.BookTrip, opts ..
 	}, nil
 }
 func TestViaGRPC(t *testing.T) {
+
 	fCon := mock.FakeClientConnInterface{}
 	fRes := protofakes.FakeReservationServiceClient{}
 	fRes.MakeReservationStub = MapGRPCInputToOutput
 	VarClientMaker := mock.FakeClientMaker{}
-	VarClientMaker.MakeClientReturns(fRes, nil, nil)
+	//VarClientMaker.MakeClientReturns(fRes, nil, nil)
 
 	BookedTrip, _ := send_via_PubSub(testPassengerX)
 	fmt.Println("BOOKED TRIP")
@@ -34,3 +36,4 @@ func TestViaGRPC(t *testing.T) {
 }
 
 //go test -v client/send_via_gRPC_test.go
+*/

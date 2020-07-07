@@ -19,13 +19,13 @@ func MapPubSubInputToOutput(msg *message.Message) (<-chan *message.Message, erro
 	TripBooked := proto.TripBooked{
 		Trip: &proto.Trip{
 			PassengerName: BookTrip.PassengerName,
-			DriverName:    "TestDriverMark",
+			DriverName:    "TestDriverMarek",
 		},
 	}
 	Msg, _ := conv.ToJsonToMessage(TripBooked)
 	pubSubOut := make(chan *message.Message)
 	go func(sendTo chan<- *message.Message) {
-		//sendTo <- Msg
+		sendTo <- Msg
 	}(pubSubOut)
 	return pubSubOut, nil
 }
