@@ -8,10 +8,17 @@ import (
 	"github.com/marchmiel/proto-playground/conv"
 	"github.com/marchmiel/proto-playground/proto"
 	mock "github.com/marchmiel/proto-playground/protoplaygroundfakes"
+	"github.com/stretchr/testify/assert"
 	"testing"
 )
 
 var testPassenger string = "PhilMur"
+var ExpectedTrip *proto.TripBooked = &proto.TripBooked{
+	Trip: &proto.Trip{
+		PassengerName: testPassenger,
+		DriverName:    "TestDriverMarek",
+	},
+}
 
 func MapPubSubInputToOutput(msg *message.Message) (<-chan *message.Message, error) {
 	var BookTrip proto.BookTrip
@@ -31,14 +38,16 @@ func MapPubSubInputToOutput(msg *message.Message) (<-chan *message.Message, erro
 }
 
 func TestSendViaPubSub(t *testing.T) {
-	fmt.Println("TESTING")
+	t.Logf("Starting PubSub Test")
 	VarPubSubConnector := mock.FakePubSubConnector{}
 	VarPubSubConnector.SetConnType("FakeConnector")
 	VarPubSubConnector.SendReservationStub = MapPubSubInputToOutput
 
-	BookedTrip, _ := send_via_PubSub(testPassenger)
-	fmt.Println("BOOKED TRIP")
+	BookedTrip, err := send_via_PubSub(testPassenger)
+	fmt.Println("is nil?")
 	fmt.Println(BookedTrip)
+	fmt.Println(err)
+	assert.Equal(t, ExpectedTrip, BookedTrip, "Comparing expected and return trip")
 }
 
 //go test client/send_via_gRPC_test.go -v

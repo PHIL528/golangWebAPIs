@@ -15,7 +15,7 @@ var (
 	GRPC_PORT             string = ":3002"          //Exposed
 	Localhost_PubSub_PORT string = "localhost:8085" //Connecting to external
 	PubSub_Project_Name          = "karhoo-local"
-	secure_type                  = grpc.WithInsecure()
+	//Secure_type                  = grpc.WithInsecure()
 )
 
 func GetTopic(ctx context.Context, top string, admin bool) (*pubsub.Topic, context.Context, error) {
