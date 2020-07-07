@@ -73,7 +73,9 @@ func send_via_gRPC(client_name string) (*proto.TripBooked, error) {
 	BookTripRequest := proto.BookTrip{
 		PassengerName: client_name,
 	}
+	fmt.Println("about to make res")
 	TripBooked, err := res.MakeReservation(context.Background(), &BookTripRequest)
+	fmt.Println("fin res")
 	if err != nil {
 		panic(err)
 	}
