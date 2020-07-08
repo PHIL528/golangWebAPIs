@@ -3,89 +3,85 @@ package main
 import (
 	"context"
 	"encoding/json"
-	"errors"
 	"fmt"
-	"log"
-	"net"
-	"os"
-
-	"github.com/marchmiel/proto-playground/Config"
-	"github.com/marchmiel/proto-playground/proto"
-
 	"github.com/ThreeDotsLabs/watermill"
 	"github.com/ThreeDotsLabs/watermill-googlecloud/pkg/googlecloud"
 	"github.com/ThreeDotsLabs/watermill/message"
+	"github.com/marchmiel/proto-playground/Config"
+	//	"github.com/marchmiel/proto-playground/client/model"
+	"github.com/marchmiel/proto-playground/proto"
+	"github.com/marchmiel/proto-playground/server/servgrpc"
+	"github.com/marchmiel/proto-playground/server/servpubs"
+	"github.com/marchmiel/proto-playground/server/servrest"
+	"github.com/marchmiel/proto-playground/server/wrapper"
+	//"github.com/pkg/errors"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/reflection"
+	"log"
+	"net"
+	"net/http"
+	"os"
+	//"reflect"
 )
 
-var publisher_main message.Publisher
-
-//publisher message.Publisher
-
-func createTrip(client_name string) (*proto.TripBooked, error) { //This method is called by the PubSub puller and the gRPC handler
-	booked_trip := proto.TripBooked{
-		Trip: &proto.Trip{
-			PassengerName: client_name,
-			DriverName:    "Marek",
-		},
-	}
-	jsonbytes, err := json.Marshal(booked_trip)
-	if err != nil {
-		//log.Printf("Could not convert json %v", err)
-		return nil, errors.New("Could not convert JSON")
-	}
-	msg := message.NewMessage(watermill.NewUUID(), jsonbytes)
-	if err := publisher_main.Publish(Config.Server_Publish_Topic, msg); err != nil {
-		return nil, errors.New("Could not push confirmation to Pub/Sub service")
-	}
-	return &booked_trip, nil
-}
+var designatedDriver string = "TestDiver101"
+var publisherMain message.Publisher
 
 func main() {
 	os.Setenv("PUBSUB_EMULATOR_HOST", Config.Localhost_PubSub_PORT)
-	fmt.Println(Config.Localhost_PubSub_PORT)
 
-	//Generate Watermill Publisher
-	logger := watermill.NewStdLogger(false, false)
-	var err error
-	publisher_main, err = googlecloud.NewPublisher(googlecloud.PublisherConfig{
-		ProjectID: Config.PubSub_Project_Name,
-	}, logger)
-	if err != nil {
-		panic(err)
-	}
-	if err := publisher_main.Publish(Config.Server_Publish_Topic, &message.Message{}); err != nil {
-		panic(err)
-	}
-	fmt.Println("PAST PUBLISHER")
-	//Generate Watermill Subscriber
-	logger2 := watermill.NewStdLogger(false, false)
-	subscriber, err := googlecloud.NewSubscriber(
-		googlecloud.SubscriberConfig{
-			GenerateSubscriptionName: func(topic string) string {
-				return "server-puller"
-			},
-			ProjectID: Config.PubSub_Project_Name,
-		},
-		logger2,
-	)
-	if err != nil {
-		panic(err)
-	}
-	messages, err := subscriber.Subscribe(context.Background(), Config.Server_Pull_Topic)
-	if err != nil {
-		panic(err)
-	}
+	PublisherInit()
+	go Grpc()
+	go Pubs()
+	Rest()
 
-	go gRPCListener() //To recieve gRPC requests from client via MakeReservation contract
-	fmt.Println("called go")
-	pubSubPuller(messages) //To recieve pulls from client on MakeReservation topic
 }
 
-//gRPC HANDLER
+func HandleClientData(clientData wrapper.ClientDataTyp) (*wrapper.TripBookedResponse, error) {
+	var bookTripRequest wrapper.BookTripRequest
+	err := clientData.Unload(&bookTripRequest)
+	if err != nil {
+		return nil, err
+	}
+	tripBookedResponse := wrapper.TripBookedResponse{
+		PassengerName: bookTripRequest.PassengerName,
+		DriverName:    designatedDriver,
+	}
+	err = clientData.Load(&tripBookedResponse)
+	if err != nil {
+		return nil, err
+	}
+	return &tripBookedResponse, nil
+}
 
-func gRPCListener() {
+func Publish(tbr *wrapper.TripBookedResponse, msg *message.Message) error { // in the form of (nil, msg) or (tbr, nil)
+	var jm *message.Message
+	jm = msg
+	if jm == nil {
+		jsonbytes, err := json.Marshal(tbr)
+		if err != nil {
+			return nil //, errors.Wrap(err, "Could not convert json")
+		}
+		jm = message.NewMessage(watermill.NewUUID(), jsonbytes)
+	}
+	return publisherMain.Publish(Config.Server_Publish_Topic, jm)
+}
+
+func PublisherInit() {
+	var err error
+	if publisherMain, err = googlecloud.NewPublisher(googlecloud.PublisherConfig{
+		ProjectID: Config.PubSub_Project_Name,
+	}, watermill.NewStdLogger(false, false)); err != nil {
+		panic(err)
+	}
+	/* if err := publisherMain.Publish(Config.Server_Publish_Topic, &message.Message{}); err != nil {
+		panic(err)
+	} */
+}
+
+//NEEDS A BIT OF REFACTORING BELOW
+
+func Grpc() {
 	lis, err := net.Listen("tcp", Config.GRPC_PORT) //React port + 2
 	if err != nil {
 		log.Fatalf("Error %v", err)
@@ -103,29 +99,66 @@ type server struct {
 }
 
 func (s *server) MakeReservation(ctx context.Context, req *proto.BookTrip) (*proto.TripBooked, error) {
+	//var cli wrapper.ClientDataTyp
 	s.l.Println("Recieveing gRPC request to book trip from " + req.PassengerName)
-	return createTrip(req.PassengerName)
+	cli := servgrpc.NewGrpcData(req)
+	tbr, err := HandleClientData(cli)
+	if err != nil {
+		panic(err)
+	}
+
+	Publish(tbr, nil)
+	return cli.RespProto, nil
 }
 
-//PubSub Handler
-
-func pubSubPuller(messages <-chan *message.Message) {
-	for msg := range messages {
-		var BookTrip proto.BookTrip
-		err := json.Unmarshal(msg.Payload, &BookTrip)
+func Pubs() {
+	logger := watermill.NewStdLogger(false, false)
+	subscriber, err := googlecloud.NewSubscriber(
+		googlecloud.SubscriberConfig{
+			GenerateSubscriptionName: func(topic string) string {
+				return "server-puller"
+			},
+			ProjectID: Config.PubSub_Project_Name,
+		},
+		logger,
+	)
+	if err != nil {
+		panic(err)
+	}
+	messages, err := subscriber.Subscribe(context.Background(), Config.Server_Pull_Topic)
+	if err != nil {
+		panic(err)
+	}
+	for m := range messages {
+		//var cli wrapper.ClientDataTyp
+		fmt.Println("Recieved m channel ")
+		cli := servpubs.NewPubsData(m)
+		_, err := HandleClientData(cli)
 		if err != nil {
-			fmt.Printf("Failed to unmarshal JSON")
-		} else {
-			tb, er := createTrip(BookTrip.PassengerName)
-			if er != nil {
-				fmt.Println("Failed create trip")
-			} else {
-				fmt.Println("PubSub reservation has been made by " + tb.Trip.PassengerName)
-			}
+			panic(err)
 		}
-		log.Println("received message: %s, payload: %s", msg.UUID, string(msg.Payload))
+		//val := reflect.ValueOf(user).Elem()
+		Publish(nil, cli.RespMsg)
+		log.Println("received message: %s, payload: %s", m.UUID, string(m.Payload))
 		// we need to Acknowledge that we received and processed the message,
 		// otherwise, it will be resent over and over again.
-		msg.Ack()
+		m.Ack()
 	}
+}
+
+func Rest() {
+	http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
+		//var cli wrapper.ClientDataTyp
+		cli := servrest.NewRestData(&w, r)
+		tbr, err := HandleClientData(cli)
+		fmt.Println(err)
+		if err != nil {
+			panic(err)
+		}
+		Publish(tbr, nil)
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusCreated)
+		json.NewEncoder(w).Encode(tbr)
+	})
+	http.ListenAndServe(":3003", nil)
 }

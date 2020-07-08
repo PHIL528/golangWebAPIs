@@ -16,6 +16,7 @@ type TripBookedResponse struct {
 func NewBookTripRequest(name string) *BookTripRequest {
 	return &BookTripRequest{PassengerName: name}
 }
+
 func NewTripBooked(t *BookTripRequest, d string) *TripBookedResponse {
 	return &TripBookedResponse{PassengerName: t.PassengerName, DriverName: d}
 }
