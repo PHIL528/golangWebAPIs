@@ -37,7 +37,7 @@ func main() {
 
 }
 
-func HandleClientData(clientData wrapper.ClientDataTyp) (*wrapper.TripBookedResponse, error) {
+func HandleClientData(clientData wrapper.ClientDataType) (*wrapper.TripBookedResponse, error) {
 	var bookTripRequest wrapper.BookTripRequest
 	err := clientData.Unload(&bookTripRequest)
 	if err != nil {

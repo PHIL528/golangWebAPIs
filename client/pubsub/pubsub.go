@@ -68,7 +68,7 @@ func (p *pubSubTripBooker) CreateMessage(mod *model.BookTripRequest) (*message.M
 }
 
 //pub *message.Publisher, sub *message.Subscriber, pubTopic string, subTopic string
-func NewTripBooker() (model.TripBooker, error) {
+var NewTripBooker = func() (model.TripBooker, error) {
 	template := pubSubTripBooker{}
 	logger := watermill.NewStdLogger(false, false)
 	var err error
@@ -92,4 +92,11 @@ func NewTripBooker() (model.TripBooker, error) {
 	template.subTopic = Config.Server_Publish_Topic
 
 	return &template, nil //&pubSubTripBooker{publisher: pub, subscriber: sub, pubtopic: topicName, subtopic: subName}
+}
+
+func GetEmptyPubSubTripBooker() *pubSubTripBooker {
+	return &pubSubTripBooker{}
+}
+func CustomPubSubTripBooker(pub *message.Publisher, sub *message.Subscriber, spubTopic string, ssubTopic string, ssubName string) model.TripBooker {
+	return &pubSubTripBooker{publisher: *pub, subscriber: *sub, pubTopic: spubTopic, subTopic: ssubTopic, subName: ssubName}
 }

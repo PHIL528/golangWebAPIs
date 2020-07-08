@@ -9,16 +9,19 @@ import (
 	"github.com/marchmiel/proto-playground/client/rest"
 	"github.com/pkg/errors"
 	"os"
-	"strings"
+	//"strings"
 )
+
+var pBTR *model.BookTripRequest
+var pTBResp *model.TripBookedResponse
 
 func main() {
 	fmt.Println("Starting client")
 	os.Setenv("PUBSUB_EMULATOR_HOST", Config.Localhost_PubSub_PORT)
-	route := strings.ToLower(os.Args[1])
-	clientName := os.Args[2]
 	var tripBooker model.TripBooker
 	var err error
+	route := os.Args[1]
+	clientName := os.Args[2]
 	if route == "grpc" {
 		tripBooker, err = grpc.NewTripBooker()
 	} else if route == "pubsub" {
@@ -37,4 +40,7 @@ func main() {
 		panic(errors.Wrap(err, "Could not create trip"))
 	}
 	fmt.Println("Assigned to driver " + tripBookedResponse.DriverName)
+
+	pBTR = bookTripRequest
+	pTBResp = tripBookedResponse
 }

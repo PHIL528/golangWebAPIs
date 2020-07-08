@@ -1,3 +1,6 @@
+//counterfeiter:generate ... TripBooker
+//go run github.com/maxbrunsfeld/counterfeiter/v6 ./client/model TripBooker
+
 package model
 
 import ()
