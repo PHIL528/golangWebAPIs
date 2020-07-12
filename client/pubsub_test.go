@@ -54,9 +54,8 @@ var MockTripBooker = func() (model.TripBooker, error) {
 	template := pubsub.CustomPubSubTripBooker(&publisher, &subscriber, Config.Server_Pull_Topic, Config.Server_Publish_Topic, "myasdf")
 	return template, nil
 }
-var MockChan chan *message.Message
 
-var PublishStub = func(top string, ms ...*message.Message) error {
+var PublishStub = func(top string, ms ...*message.Message) error { //Acts as client sender and server publisher
 	msg := ms[0]
 	var BTR model.BookTripRequest
 	json.Unmarshal(msg.Payload, &BTR)
@@ -68,7 +67,7 @@ var PublishStub = func(top string, ms ...*message.Message) error {
 	MockChan <- message.NewMessage(msg.UUID, jsonbytes)
 	return nil
 }
-
+var MockChan chan *message.Message
 var SubscribeStub = func(ctx context.Context, topic string) (<-chan *message.Message, error) {
 	return MockChan, nil
 }

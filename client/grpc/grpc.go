@@ -8,6 +8,7 @@ import (
 	"github.com/marchmiel/proto-playground/proto"
 	"github.com/pkg/errors"
 	"google.golang.org/grpc"
+	"time"
 )
 
 type grpcTripBooker struct {
@@ -23,10 +24,14 @@ func NewTripBooker() (model.TripBooker, error) {
 	res := proto.NewReservationServiceClient(con)
 	return &grpcTripBooker{reservationClient: res}, nil
 }
+func CustomTripBooker(r proto.ReservationServiceClient) (model.TripBooker, error) {
+	return &grpcTripBooker{reservationClient: r}, nil
+}
 
 func (g *grpcTripBooker) BookTrip(mod *model.BookTripRequest) (*model.TripBookedResponse, error) {
 	bookTripRequest := CreateProto(mod)
 	ctx := context.Background()
+	ctx, _ = context.WithTimeout(ctx, 10*time.Second)
 	tripBooked, err := g.reservationClient.MakeReservation(ctx, bookTripRequest)
 	return UnProto(tripBooked), errors.Wrap(err, "Failed to make reservation")
 }

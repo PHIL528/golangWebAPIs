@@ -4,33 +4,41 @@ import (
 	//"bytes"
 	"encoding/json"
 	//	"fmt"
-	//	"github.com/marchmiel/proto-playground/client/model"
-	"github.com/marchmiel/proto-playground/server/wrapper"
-	//"io"
-	//	"log"
-	//"github.com/pkg/errors"
+	"github.com/ThreeDotsLabs/watermill"
+	"github.com/marchmiel/proto-playground/client/model"
+	//"github.com/marchmiel/proto-playground/server/wrapper"
 	"net/http"
 )
 
-type restData struct {
+type restDataType struct {
 	req  *http.Request
-	resp *http.ResponseWriter
+	resp http.ResponseWriter
+	err  chan error
 }
 
-func NewRestData(rw *http.ResponseWriter, r *http.Request) *restData {
-	return &restData{req: r, resp: rw}
+func NewRestData(rw http.ResponseWriter, r *http.Request) *restDataType {
+	return &restDataType{req: r, resp: rw, err: make(chan error)}
 }
 
-func (r *restData) Unload(btr *wrapper.BookTripRequest) error {
+func (r *restDataType) Unload(btr *model.BookTripRequest) error {
 	return json.NewDecoder(r.req.Body).Decode(btr)
 }
-func (r *restData) Load(tbr *wrapper.TripBookedResponse) error {
-	//jsonbytes, err := json.Marshal(tbr)
+func (r *restDataType) Load(tbr *model.TripBookedResponse) error {
+	r.resp.Header().Set("Content-Type", "application/json")
+	err := json.NewEncoder(r.resp).Encode(tbr)
+	r.SendBack(err)
+	return err
+}
+func (r *restDataType) GetResponse() interface{} {
+	return nil
+}
+func (r *restDataType) CorrelationID() string {
+	return watermill.NewUUID()
+}
+func (r *restDataType) SendBack(err error) {
+	r.err <- err
+}
 
-	//r.resp.Body = bytes.NewBuffer(jsonbytes)
-	//err := errors.New("mock")
-	return nil
-}
-func (g *restData) Ret() interface{} {
-	return nil
-}
+//jsonbytes, err := json.Marshal(tbr)
+//r.resp.Body = bytes.NewBuffer(jsonbytes)
+//err := errors.New("mock")

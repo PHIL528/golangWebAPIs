@@ -49,7 +49,7 @@ func (p *pubSubTripBooker) BookTrip(mod *model.BookTripRequest) (*model.TripBook
 				return &template, nil
 			} else {
 				m.Ack()
-				fmt.Printf("Recieved message from other UUID")
+				fmt.Printf("Recieved message from other UUID, resume research for correct UUID")
 			}
 		}
 	}
@@ -94,9 +94,10 @@ var NewTripBooker = func() (model.TripBooker, error) {
 	return &template, nil //&pubSubTripBooker{publisher: pub, subscriber: sub, pubtopic: topicName, subtopic: subName}
 }
 
+/*
 func GetEmptyPubSubTripBooker() *pubSubTripBooker {
 	return &pubSubTripBooker{}
-}
+} */
 func CustomPubSubTripBooker(pub *message.Publisher, sub *message.Subscriber, spubTopic string, ssubTopic string, ssubName string) model.TripBooker {
 	return &pubSubTripBooker{publisher: *pub, subscriber: *sub, pubTopic: spubTopic, subTopic: ssubTopic, subName: ssubName}
 }

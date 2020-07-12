@@ -8,42 +8,112 @@ import (
 	"github.com/ThreeDotsLabs/watermill-googlecloud/pkg/googlecloud"
 	"github.com/ThreeDotsLabs/watermill/message"
 	"github.com/marchmiel/proto-playground/Config"
-	//	"github.com/marchmiel/proto-playground/client/model"
-	"github.com/marchmiel/proto-playground/proto"
+	"github.com/marchmiel/proto-playground/client/model"
+	//"github.com/pkg/errors"
+	//	"github.com/marchmiel/proto-playground/proto"
 	"github.com/marchmiel/proto-playground/server/servgrpc"
 	"github.com/marchmiel/proto-playground/server/servpubs"
 	"github.com/marchmiel/proto-playground/server/servrest"
 	"github.com/marchmiel/proto-playground/server/wrapper"
-	//"github.com/pkg/errors"
-	"google.golang.org/grpc"
-	"google.golang.org/grpc/reflection"
+	"github.com/pkg/errors"
+	//	"google.golang.org/grpc"
+	//	"google.golang.org/grpc/reflection"
 	"log"
-	"net"
-	"net/http"
-	"os"
+	"time"
+	//	"net"
+	//	"net/http"
+	//	"os"
 	//"reflect"
 )
 
-var designatedDriver string = "TestDiver101"
-var publisherMain message.Publisher
+var designatedDriver string = "Marek"
+
+//var publisherMain message.Publisher
 
 func main() {
-	os.Setenv("PUBSUB_EMULATOR_HOST", Config.Localhost_PubSub_PORT)
+	errorsChan := make(chan error, 3)
+	collection := make(chan wrapper.ClientDataType, 100)
 
-	PublisherInit()
-	go Grpc()
-	go Pubs()
-	Rest()
+	go servgrpc.NewServePortChan("", collection, errorsChan)
+	go servpubs.NewServePortChan("", collection, errorsChan)
+	go servrest.NewServePortChan("", collection, errorsChan)
 
+	stop, _ := context.WithTimeout(context.Background(), time.Second*2)
+checkErrors:
+	for {
+		select {
+		case <-stop.Done():
+			break checkErrors
+		case err := <-errorsChan:
+			fmt.Println(errors.Wrap(err, " error in starting up endpoint"))
+		}
+	}
+	log.Printf("server startups completed")
+
+	logrus := watermill.NewStdLogger(false, false)
+	publisherMain, err := googlecloud.NewPublisher(googlecloud.PublisherConfig{
+		ProjectID: Config.PubSub_Project_Name,
+	}, logrus)
+	if err != nil {
+		panic(err)
+	}
+	log.Printf("loop")
+	ServeChannel(collection, publisherMain)
 }
 
-func HandleClientData(clientData wrapper.ClientDataType) (*wrapper.TripBookedResponse, error) {
-	var bookTripRequest wrapper.BookTripRequest
+func ServeChannel(collection <-chan wrapper.ClientDataType, publisherMain message.Publisher) {
+	driverID := 1
+	for clientData := range collection {
+		var bookTripRequest model.BookTripRequest
+		err := clientData.Unload(&bookTripRequest)
+		if err != nil {
+			clientData.SendBack(errors.Wrap(err, "Could not unload BookTripRequest"))
+			continue
+		}
+		log.Printf("Recieved request from %s", bookTripRequest.PassengerName)
+		tripBookedResponse := model.TripBookedResponse{
+			PassengerName: bookTripRequest.PassengerName,
+			DriverName:    designatedDriver + string(driverID),
+		}
+		driverID += 1
+		//PUBLISH MESSAGE - - - - - - -
+		jsonbytes, err := json.Marshal(tripBookedResponse)
+		if err != nil {
+			clientData.SendBack(errors.Wrap(err, "Could not convert json for publisher"))
+			continue
+		}
+		msg := message.NewMessage(clientData.CorrelationID(), jsonbytes)
+		err = publisherMain.Publish(Config.Server_Publish_Topic, msg)
+		if err != nil {
+			clientData.SendBack(errors.Wrap(err, "Could not publish"))
+			continue
+		}
+		//SEND DATA BACK TO CLIENT - - - - - -
+		err = clientData.Load(&tripBookedResponse)
+		if err != nil {
+			log.Printf("Published a trip that could not be sent back")
+			//clientData.SendBack(errors.Wrap(err, "Could not load TripBookedResponse"))
+		}
+	}
+}
+
+/*
+func PublisherInit() {
+	var err error
+	if publisherMain, err = googlecloud.NewPublisher(googlecloud.PublisherConfig{
+		ProjectID: Config.PubSub_Project_Name,
+	}, watermill.NewStdLogger(false, false)); err != nil {
+		panic(err)
+	}
+}
+
+func HandleClientData(clientData wrapper.ClientDataType) (*model.TripBookedResponse, error) {
+	var bookTripRequest model.BookTripRequest
 	err := clientData.Unload(&bookTripRequest)
 	if err != nil {
 		return nil, err
 	}
-	tripBookedResponse := wrapper.TripBookedResponse{
+	tripBookedResponse := model.TripBookedResponse{
 		PassengerName: bookTripRequest.PassengerName,
 		DriverName:    designatedDriver,
 	}
@@ -54,7 +124,7 @@ func HandleClientData(clientData wrapper.ClientDataType) (*wrapper.TripBookedRes
 	return &tripBookedResponse, nil
 }
 
-func Publish(tbr *wrapper.TripBookedResponse, msg *message.Message) error { // in the form of (nil, msg) or (tbr, nil)
+func Publish(tbr *model.TripBookedResponse, msg *message.Message) error { // in the form of (nil, msg) or (tbr, nil)
 	var jm *message.Message
 	jm = msg
 	if jm == nil {
@@ -65,18 +135,6 @@ func Publish(tbr *wrapper.TripBookedResponse, msg *message.Message) error { // i
 		jm = message.NewMessage(watermill.NewUUID(), jsonbytes)
 	}
 	return publisherMain.Publish(Config.Server_Publish_Topic, jm)
-}
-
-func PublisherInit() {
-	var err error
-	if publisherMain, err = googlecloud.NewPublisher(googlecloud.PublisherConfig{
-		ProjectID: Config.PubSub_Project_Name,
-	}, watermill.NewStdLogger(false, false)); err != nil {
-		panic(err)
-	}
-	/* if err := publisherMain.Publish(Config.Server_Publish_Topic, &message.Message{}); err != nil {
-		panic(err)
-	} */
 }
 
 //NEEDS A BIT OF REFACTORING BELOW
@@ -108,7 +166,7 @@ func (s *server) MakeReservation(ctx context.Context, req *proto.BookTrip) (*pro
 	}
 
 	Publish(tbr, nil)
-	return cli.RespProto, nil
+	return cli.GetResponse().(*proto.TripBooked), nil
 }
 
 func Pubs() {
@@ -138,7 +196,7 @@ func Pubs() {
 			panic(err)
 		}
 		//val := reflect.ValueOf(user).Elem()
-		Publish(nil, cli.RespMsg)
+		Publish(nil, cli.GetResponse().(*message.Message))
 		log.Println("received message: %s, payload: %s", m.UUID, string(m.Payload))
 		// we need to Acknowledge that we received and processed the message,
 		// otherwise, it will be resent over and over again.
@@ -149,7 +207,7 @@ func Pubs() {
 func Rest() {
 	http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
 		//var cli wrapper.ClientDataTyp
-		cli := servrest.NewRestData(&w, r)
+		cli := servrest.NewRestData(w, r)
 		tbr, err := HandleClientData(cli)
 		fmt.Println(err)
 		if err != nil {
@@ -162,3 +220,4 @@ func Rest() {
 	})
 	http.ListenAndServe(":3003", nil)
 }
+*/

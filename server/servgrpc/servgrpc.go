@@ -1,33 +1,42 @@
 package servgrpc
 
 import (
-	//"github.com/marchmiel/proto-playground/client/model"
+	"github.com/ThreeDotsLabs/watermill"
+	"github.com/marchmiel/proto-playground/client/model"
 	"github.com/marchmiel/proto-playground/proto"
-	"github.com/marchmiel/proto-playground/server/wrapper"
+	//"github.com/marchmiel/proto-playground/server/wrapper"
 )
 
-type grpcData struct {
-	ReqProto  *proto.BookTrip
-	RespProto *proto.TripBooked
+type grpcDataType struct {
+	reqProto  *proto.BookTrip
+	respProto *proto.TripBooked
+	err       chan error
 }
 
-func NewGrpcData(req *proto.BookTrip) *grpcData {
-	return &grpcData{ReqProto: req}
+func NewGrpcData(req *proto.BookTrip) *grpcDataType {
+	return &grpcDataType{reqProto: req, err: make(chan error)}
 }
-
-func (g *grpcData) Unload(btr *wrapper.BookTripRequest) error {
-	btr.PassengerName = g.ReqProto.PassengerName
+func (g *grpcDataType) Unload(btr *model.BookTripRequest) error {
+	btr.PassengerName = g.reqProto.PassengerName
 	return nil
 }
-func (g *grpcData) Load(tbr *wrapper.TripBookedResponse) error {
-	g.RespProto = &proto.TripBooked{
+func (g *grpcDataType) Load(tbr *model.TripBookedResponse) error {
+	g.respProto = &proto.TripBooked{
 		Trip: &proto.Trip{
 			PassengerName: tbr.PassengerName,
 			DriverName:    tbr.DriverName,
 		},
 	}
+	g.SendBack(nil)
 	return nil
 }
-func (g *grpcData) Ret() interface{} {
-	return nil
+func (g *grpcDataType) CorrelationID() string {
+	return watermill.NewUUID()
 }
+func (g *grpcDataType) SendBack(err error) {
+	g.err <- err
+}
+
+//func (g *grpcDataType) GetResponse() interface{} {
+//	return g.respProto
+//}
