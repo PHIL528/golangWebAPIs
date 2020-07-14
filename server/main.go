@@ -3,59 +3,143 @@ package main
 import (
 	"context"
 	"encoding/json"
-	"errors"
 	"fmt"
+	"github.com/ThreeDotsLabs/watermill"
+	"github.com/ThreeDotsLabs/watermill-googlecloud/pkg/googlecloud"
+	"github.com/ThreeDotsLabs/watermill/message"
+	"github.com/marchmiel/proto-playground/Config"
+	"github.com/marchmiel/proto-playground/client/model"
+	//"github.com/pkg/errors"
+	//	"github.com/marchmiel/proto-playground/proto"
+	"github.com/marchmiel/proto-playground/server/servgrpc"
+	"github.com/marchmiel/proto-playground/server/servpubs"
+	"github.com/marchmiel/proto-playground/server/servrest"
+	"github.com/marchmiel/proto-playground/server/wrapper"
+	"github.com/pkg/errors"
+	//	"google.golang.org/grpc"
+	//	"google.golang.org/grpc/reflection"
 	"log"
-	"net"
-	"os"
-	"proto-playground/Config"
-	"proto-playground/proto"
 	"time"
-
-	"cloud.google.com/go/pubsub"
-	"google.golang.org/grpc"
-	"google.golang.org/grpc/reflection"
+	//	"net"
+	//	"net/http"
+	//	"os"
+	//"reflect"
 )
 
-var publish_topic *pubsub.Topic
+var designatedDriver string = "Marek"
 
-func createTrip(client_name string) (*proto.TripBooked, error) { //This method is called by the PubSub puller and the gRPC handler
-	booked_trip := proto.TripBooked{
-		Trip: &proto.Trip{
-			PassengerName: client_name,
-			DriverName:    "Marek",
-		},
-	}
-	jsonbytes, err := json.Marshal(booked_trip)
-	if err != nil {
-		log.Printf("Could not convert json %v", err)
-		return &proto.TripBooked{}, errors.New("Could not convert JSON")
-	}
-	ps_ctx := context.Background()
-	if _, err = publish_topic.Publish(ps_ctx, &pubsub.Message{Data: jsonbytes}).Get(ps_ctx); err != nil {
-		return &proto.TripBooked{}, errors.New("Could not push confirmation to Pub/Sub service")
-	}
-	return &booked_trip, nil
-}
+//var publisherMain message.Publisher
 
 func main() {
-	var err error
-	publish_topic, err = setupPublisher() //To publish confirmed requests, to be recieved by client + listener
-	if err != nil {
-		panic(err)
-	}
-	pull_subscription, err := setupPuller() //To recieve requests from client
-	if err != nil {
-		panic(err)
-	}
+	errorsChan := make(chan error, 3)
+	collection := make(chan wrapper.ClientDataType, 100)
 
-	go gRPCListener(publish_topic)  //To recieve gRPC requests from client via MakeReservation contract
-	pubSubPuller(pull_subscription) //To recieve pulls from client on MakeReservation topic
+	go servgrpc.NewServePortChan("", collection, errorsChan)
+	go servpubs.NewServePortChan("", collection, errorsChan)
+	go servrest.NewServePortChan("", collection, errorsChan)
+
+	stop, _ := context.WithTimeout(context.Background(), time.Second*2)
+checkErrors:
+	for {
+		select {
+		case <-stop.Done():
+			break checkErrors
+		case err := <-errorsChan:
+			fmt.Println(errors.Wrap(err, " error in starting up endpoint"))
+		}
+	}
+	log.Printf("server startups completed")
+
+	logrus := watermill.NewStdLogger(false, false)
+	publisherMain, err := googlecloud.NewPublisher(googlecloud.PublisherConfig{
+		ProjectID: Config.PubSub_Project_Name,
+	}, logrus)
+	if err != nil {
+		panic(err)
+	}
+	log.Printf("loop")
+	ServeChannel(collection, publisherMain)
 }
 
-//gRPC HANDLER
+func ServeChannel(collection <-chan wrapper.ClientDataType, publisherMain message.Publisher) {
+	driverID := 1
+	for clientData := range collection {
+		var bookTripRequest model.BookTripRequest
+		err := clientData.Unload(&bookTripRequest)
+		if err != nil {
+			clientData.SendBack(errors.Wrap(err, "Could not unload BookTripRequest"))
+			continue
+		}
+		log.Printf("Recieved request from %s", bookTripRequest.PassengerName)
+		tripBookedResponse := model.TripBookedResponse{
+			PassengerName: bookTripRequest.PassengerName,
+			DriverName:    designatedDriver + string(driverID),
+		}
+		driverID += 1
+		//PUBLISH MESSAGE - - - - - - -
+		jsonbytes, err := json.Marshal(tripBookedResponse)
+		if err != nil {
+			clientData.SendBack(errors.Wrap(err, "Could not convert json for publisher"))
+			continue
+		}
+		msg := message.NewMessage(clientData.CorrelationID(), jsonbytes)
+		err = publisherMain.Publish(Config.Server_Publish_Topic, msg)
+		if err != nil {
+			clientData.SendBack(errors.Wrap(err, "Could not publish"))
+			continue
+		}
+		//SEND DATA BACK TO CLIENT - - - - - -
+		err = clientData.Load(&tripBookedResponse)
+		if err != nil {
+			log.Printf("Published a trip that could not be sent back")
+			//clientData.SendBack(errors.Wrap(err, "Could not load TripBookedResponse"))
+		}
+	}
+}
 
-func gRPCListener(publish_topic *pubsub.Topic) {
+/*
+func PublisherInit() {
+	var err error
+	if publisherMain, err = googlecloud.NewPublisher(googlecloud.PublisherConfig{
+		ProjectID: Config.PubSub_Project_Name,
+	}, watermill.NewStdLogger(false, false)); err != nil {
+		panic(err)
+	}
+}
+
+func HandleClientData(clientData wrapper.ClientDataType) (*model.TripBookedResponse, error) {
+	var bookTripRequest model.BookTripRequest
+	err := clientData.Unload(&bookTripRequest)
+	if err != nil {
+		return nil, err
+	}
+	tripBookedResponse := model.TripBookedResponse{
+		PassengerName: bookTripRequest.PassengerName,
+		DriverName:    designatedDriver,
+	}
+	err = clientData.Load(&tripBookedResponse)
+	if err != nil {
+		return nil, err
+	}
+	return &tripBookedResponse, nil
+}
+
+func Publish(tbr *model.TripBookedResponse, msg *message.Message) error { // in the form of (nil, msg) or (tbr, nil)
+	var jm *message.Message
+	jm = msg
+	if jm == nil {
+		jsonbytes, err := json.Marshal(tbr)
+		if err != nil {
+			return nil //, errors.Wrap(err, "Could not convert json")
+		}
+		jm = message.NewMessage(watermill.NewUUID(), jsonbytes)
+	}
+	return publisherMain.Publish(Config.Server_Publish_Topic, jm)
+}
+
+//NEEDS A BIT OF REFACTORING BELOW
+
+func Grpc() {
 	lis, err := net.Listen("tcp", Config.GRPC_PORT) //React port + 2
 	if err != nil {
 		log.Fatalf("Error %v", err)
@@ -73,74 +157,67 @@ type server struct {
 }
 
 func (s *server) MakeReservation(ctx context.Context, req *proto.BookTrip) (*proto.TripBooked, error) {
-	s.l.Printf("Recieveing gRPC request to book trip from " + req.PassengerName)
-	return createTrip(req.PassengerName)
-}
-
-//PubSub Handler
-
-func pubSubPuller(sub *pubsub.Subscription) {
-	puller_log := log.New(os.Stdout, "Server/PubSub-Puller: ", log.LstdFlags)
-	ctx := context.Background()
-	err := sub.Receive(ctx, func(ctxx context.Context, msg *pubsub.Message) {
-		var BookTrip proto.BookTrip
-		er := json.Unmarshal([]byte(msg.Data), &BookTrip)
-		if er != nil {
-			puller_log.Printf("Failed to unmarshal JSON")
-		} else {
-			tb, e := createTrip(BookTrip.PassengerName)
-			puller_log.Printf("PubSub reservation has been made by " + tb.Trip.PassengerName)
-			if e != nil {
-				puller_log.Printf("Failed create trip")
-			}
-			msg.Ack()
-		}
-	})
-	puller_log.Fatalf("Handler failed " + err.Error())
-}
-
-//SETUP
-
-func setupPublisher() (*pubsub.Topic, error) {
-	c_log := log.New(os.Stdout, "setupPublisher", log.LstdFlags)
-	os.Setenv("PUBSUB_EMULATOR_HOST", Config.Localhost_PubSub_PORT)
-
-	ps_ctx := context.Background()
-	notified := false
-	var client *pubsub.Client
-	var err error
-	for { //I put the for loop in hear to loop until the PubSub is started, but its useless because err returns nil regardless of whether or not the PubSub terminal is started
-		client, err = pubsub.NewClient(ps_ctx, "karhoo-local")
-		if err == nil {
-			break
-		} else if !notified {
-			c_log.Printf("setupPublisher: Failed to create pubsub client, %v", err)
-			c_log.Printf("setupPublisher Perhaps the PubSub terminal has not yet been started, will reattempt conncetion once per second")
-			notified = true
-		}
-		time.Sleep(time.Second)
-	}
-	topic, err := client.CreateTopic(ps_ctx, Config.Server_Publish_Topic)
-	if err != nil {
-
-	}
-	var return_err error = nil
-	if err != nil {
-		c_log.Printf("Failed to create topic %v", err)
-		c_log.Printf("Perhaps the topic already exists, joining topic instead of creating")
-		topic = client.Topic(Config.Server_Publish_Topic)
-		if exists, err := topic.Exists(ps_ctx); !exists {
-			return_err = errors.New("Cannot create topic and topic does not exist, " + err.Error())
-		}
-	}
-	return topic, return_err
-}
-
-func setupPuller() (*pubsub.Subscription, error) {
-	fmt.Println("")
-	sub, _, err := Config.GetSubscriptionToTopic(context.Background(), Config.Server_Pull_Topic, "server-pull", true)
+	//var cli wrapper.ClientDataTyp
+	s.l.Println("Recieveing gRPC request to book trip from " + req.PassengerName)
+	cli := servgrpc.NewGrpcData(req)
+	tbr, err := HandleClientData(cli)
 	if err != nil {
 		panic(err)
 	}
-	return sub, err
+
+	Publish(tbr, nil)
+	return cli.GetResponse().(*proto.TripBooked), nil
 }
+
+func Pubs() {
+	logger := watermill.NewStdLogger(false, false)
+	subscriber, err := googlecloud.NewSubscriber(
+		googlecloud.SubscriberConfig{
+			GenerateSubscriptionName: func(topic string) string {
+				return "server-puller"
+			},
+			ProjectID: Config.PubSub_Project_Name,
+		},
+		logger,
+	)
+	if err != nil {
+		panic(err)
+	}
+	messages, err := subscriber.Subscribe(context.Background(), Config.Server_Pull_Topic)
+	if err != nil {
+		panic(err)
+	}
+	for m := range messages {
+		//var cli wrapper.ClientDataTyp
+		fmt.Println("Recieved m channel ")
+		cli := servpubs.NewPubsData(m)
+		_, err := HandleClientData(cli)
+		if err != nil {
+			panic(err)
+		}
+		//val := reflect.ValueOf(user).Elem()
+		Publish(nil, cli.GetResponse().(*message.Message))
+		log.Println("received message: %s, payload: %s", m.UUID, string(m.Payload))
+		// we need to Acknowledge that we received and processed the message,
+		// otherwise, it will be resent over and over again.
+		m.Ack()
+	}
+}
+
+func Rest() {
+	http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
+		//var cli wrapper.ClientDataTyp
+		cli := servrest.NewRestData(w, r)
+		tbr, err := HandleClientData(cli)
+		fmt.Println(err)
+		if err != nil {
+			panic(err)
+		}
+		Publish(tbr, nil)
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusCreated)
+		json.NewEncoder(w).Encode(tbr)
+	})
+	http.ListenAndServe(":3003", nil)
+}
+*/

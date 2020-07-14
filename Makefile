@@ -1,15 +1,22 @@
 build:
-    go build -o bin/main client/main.go
-    go build -o bin/main server/main.go
-    go build -o bin/main listener/main.go
-    go build -o bin/main Config/Config.go
+	go build -o bin/server_exec server/main.go
+	go build -o bin/listener_exec listener/main.go
+	go build -o bin/client_exec client/main.go
 
+clean:
+	rm bin/*
 
-run:
-    go run server/main.go
-    go run bin/main
-    go run client.go
-    go run listener.go
+run: 
+	go run script.go
+s:
+	bin/./server_exec
+l: 
+	bin/./listener_exec
+c:
+	bin/./client_exec make
 
-pubsub: 
+pubsub:
 	docker-compose up
+
+cgen:
+	go run github.com/maxbrunsfeld/counterfeiter/v6 ./client/main.go PubSubConnector

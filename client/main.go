@@ -1,97 +1,46 @@
 package main
 
 import (
-	"encoding/json"
-	"errors"
 	"fmt"
-
+	"github.com/marchmiel/proto-playground/Config"
+	"github.com/marchmiel/proto-playground/client/grpc"
+	"github.com/marchmiel/proto-playground/client/model"
+	"github.com/marchmiel/proto-playground/client/pubsub"
+	"github.com/marchmiel/proto-playground/client/rest"
+	"github.com/pkg/errors"
 	"os"
-	"proto-playground/Config"
-	"proto-playground/proto"
-	"strings"
-
-	"cloud.google.com/go/pubsub"
-	"golang.org/x/net/context"
-	"google.golang.org/grpc"
+	//"strings"
 )
 
+var pBTR *model.BookTripRequest
+var pTBResp *model.TripBookedResponse
+
 func main() {
-	route := os.Args[1]
-	client_fname := strings.ToLower(os.Args[2])
+	fmt.Println("Starting client")
+	os.Setenv("PUBSUB_EMULATOR_HOST", Config.Localhost_PubSub_PORT)
+	var tripBooker model.TripBooker
 	var err error
-	var trip *proto.TripBooked
+	route := os.Args[1]
+	clientName := os.Args[2]
 	if route == "grpc" {
-		trip, err = send_via_gRPC(client_fname)
+		tripBooker, err = grpc.NewTripBooker()
 	} else if route == "pubsub" {
-		trip, err = send_via_PubSub(client_fname)
+		tripBooker, err = pubsub.NewTripBooker()
+	} else if route == "rest" {
+		tripBooker, err = rest.NewTripBooker()
 	} else {
-		panic("Args 1 is neither gRPC nor PubSub")
+		panic(errors.New("No valid route selected"))
 	}
-	if err == nil {
-		fmt.Println("Assigned to driver " + trip.Trip.DriverName)
-	} else {
+	if err != nil {
 		panic(err)
 	}
-}
-func send_via_gRPC(client_name string) (*proto.TripBooked, error) {
-	var con *grpc.ClientConn
-	con, err := grpc.Dial("localhost:3002", grpc.WithInsecure())
+	bookTripRequest := model.NewBookTripRequest(clientName)
+	tripBookedResponse, err := tripBooker.BookTrip(bookTripRequest)
 	if err != nil {
-		return &proto.TripBooked{}, err
+		panic(errors.Wrap(err, "Could not create trip"))
 	}
-	defer con.Close()
-	client := proto.NewReservationServiceClient(con)
-	book_trip_request := proto.BookTrip{
-		PassengerName: client_name,
-	}
-	confirmed_trip, err := client.MakeReservation(context.Background(), &book_trip_request)
-	if err != nil {
-		return &proto.TripBooked{}, err
-	}
-	return confirmed_trip, nil
-	//log.Printf("Server assigned driver %s", confirmed_trip.DriverName)
-}
-func send_via_PubSub(client_name string) (*proto.TripBooked, error) {
-	os.Setenv("PUBSUB_EMULATOR_HOST", Config.Localhost_PubSub_PORT)
-	s_ctx := context.Background()
-	send_topic, _, err := Config.GetTopic(s_ctx, Config.Server_Pull_Topic, false)
-	defer send_topic.Stop()
-	request := proto.BookTrip{
-		PassengerName: client_name,
-	}
-	jsonbytes, err := json.Marshal(request)
-	if err != nil {
-		return nil, errors.New("Could not convert json: " + err.Error())
-	}
+	fmt.Println("Assigned to driver " + tripBookedResponse.DriverName)
 
-	// PREPARED TO LISTEN FOR RESPONSE
-	r_ctx := context.Background()
-	sub, _, err := Config.GetSubscriptionToTopic(r_ctx, Config.Server_Publish_Topic, client_name, false)
-	if err != nil {
-		panic("Unable to recieve subscription to listen for confirmation")
-	}
-
-	// PUBLISH REQUEST
-	ps_ctx := context.Background()
-	if _, err = send_topic.Publish(ps_ctx, &pubsub.Message{Data: jsonbytes}).Get(ps_ctx); err != nil {
-		return nil, errors.New("Publishing errors " + err.Error())
-	}
-
-	// LISTEN FOR RESPONSE
-	b_ctx := context.Background()
-	t_ctx, cancel := context.WithCancel(b_ctx)
-	var TripBooked proto.TripBooked
-	errx := sub.Receive(t_ctx, func(ctxxx context.Context, msg *pubsub.Message) {
-		er := json.Unmarshal([]byte(msg.Data), &TripBooked)
-		if er != nil {
-			fmt.Printf("Could not unmarshal JSON, cannot confirm trip %v", er)
-		} else {
-			msg.Ack()
-			cancel()
-		}
-	})
-	if errx != nil {
-		fmt.Println("Recieve failed")
-	}
-	return &TripBooked, nil
+	pBTR = bookTripRequest
+	pTBResp = tripBookedResponse
 }
