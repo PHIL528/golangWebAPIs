@@ -2,6 +2,7 @@
 
 ## Simple REST, gRPC and Pub/Sub testing
 
+<br></br>
 
 During the first two weeks of my internship at Karhoo, my mentor Marek Chmiel had me work on this repository. There is a client and server terminal, where the client sends a request to the server and the server sends back a response. 
 
@@ -24,6 +25,7 @@ Requires Google Cloud Pub/Sub to be installed locally to handle Pub/Sub.
 
  
 **Running the Emulator, Server, Client and Listener**
+
 Server:
 
 ```cd go/src/proto-playground/server```
