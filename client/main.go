@@ -16,6 +16,7 @@ var pBTR *model.BookTripRequest
 var pTBResp *model.TripBookedResponse
 
 func main() {
+
 	fmt.Println("Starting client")
 	os.Setenv("PUBSUB_EMULATOR_HOST", Config.Localhost_PubSub_PORT)
 	var tripBooker model.TripBooker
